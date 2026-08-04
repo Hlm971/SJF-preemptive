@@ -1,1 +1,1 @@
-# Gi-i-thu-t-SJF-preemptive
+Lập trình CPU: Giải thuật SJF-preemptive
