@@ -2,15 +2,18 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
 from models import Process
+from sjf_preemptive import run_sjf
 
 
 class SchedulerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("CPU Scheduling Simulator")
-        self.root.geometry("1000x780")
+        self.root.geometry("1200x800")
 
         self.processes = []
+        self.completed_processes = []
+        self.gantt_data = []
 
         # =========================
         # TITLE
@@ -20,7 +23,7 @@ class SchedulerApp:
             text="CPU SCHEDULING SIMULATOR",
             font=("Arial", 22, "bold")
         )
-        title.pack(pady=20)
+        title.pack(pady=15)
 
         # =========================
         # PROCESS INPUT
@@ -28,18 +31,23 @@ class SchedulerApp:
         input_frame = ttk.LabelFrame(
             self.root,
             text="Process Input",
-            padding=20
+            padding=15
         )
         input_frame.pack(
             fill="x",
             padx=20,
-            pady=10
+            pady=5
         )
 
         ttk.Label(
             input_frame,
             text="PID:"
-        ).grid(row=0, column=0, padx=5, pady=5)
+        ).grid(
+            row=0,
+            column=0,
+            padx=5,
+            pady=5
+        )
 
         self.pid_entry = ttk.Entry(
             input_frame,
@@ -55,7 +63,12 @@ class SchedulerApp:
         ttk.Label(
             input_frame,
             text="Arrival Time:"
-        ).grid(row=0, column=2, padx=5, pady=5)
+        ).grid(
+            row=0,
+            column=2,
+            padx=5,
+            pady=5
+        )
 
         self.arrival_entry = ttk.Entry(
             input_frame,
@@ -71,7 +84,12 @@ class SchedulerApp:
         ttk.Label(
             input_frame,
             text="Burst Time:"
-        ).grid(row=0, column=4, padx=5, pady=5)
+        ).grid(
+            row=0,
+            column=4,
+            padx=5,
+            pady=5
+        )
 
         self.burst_entry = ttk.Entry(
             input_frame,
@@ -97,7 +115,7 @@ class SchedulerApp:
         )
 
         # =========================
-        # PROCESS TABLE
+        # PROCESS TABLE - 7 COLUMNS
         # =========================
         table_frame = ttk.LabelFrame(
             self.root,
@@ -108,13 +126,17 @@ class SchedulerApp:
             fill="both",
             expand=True,
             padx=20,
-            pady=10
+            pady=5
         )
 
         columns = (
             "pid",
             "arrival",
-            "burst"
+            "burst",
+            "completion",
+            "turnaround",
+            "waiting",
+            "response"
         )
 
         self.tree = ttk.Treeview(
@@ -125,26 +147,19 @@ class SchedulerApp:
         )
 
         self.tree.heading("pid", text="PID")
-        self.tree.heading("arrival", text="Arrival Time")
-        self.tree.heading("burst", text="Burst Time")
+        self.tree.heading("arrival", text="AT")
+        self.tree.heading("burst", text="BT")
+        self.tree.heading("completion", text="CT")
+        self.tree.heading("turnaround", text="TAT")
+        self.tree.heading("waiting", text="WT")
+        self.tree.heading("response", text="RT")
 
-        self.tree.column(
-            "pid",
-            width=150,
-            anchor="center"
-        )
-
-        self.tree.column(
-            "arrival",
-            width=150,
-            anchor="center"
-        )
-
-        self.tree.column(
-            "burst",
-            width=150,
-            anchor="center"
-        )
+        for column in columns:
+            self.tree.column(
+                column,
+                width=100,
+                anchor="center"
+            )
 
         self.tree.pack(
             fill="both",
@@ -155,7 +170,7 @@ class SchedulerApp:
         # BUTTONS
         # =========================
         button_frame = ttk.Frame(self.root)
-        button_frame.pack(pady=10)
+        button_frame.pack(pady=8)
 
         delete_button = ttk.Button(
             button_frame,
@@ -179,12 +194,12 @@ class SchedulerApp:
             padx=5
         )
 
-        gantt_button = ttk.Button(
+        sjf_button = ttk.Button(
             button_frame,
-            text="Draw Gantt Chart",
-            command=self.draw_gantt_chart
+            text="Run SJF Preemptive",
+            command=self.run_sjf_algorithm
         )
-        gantt_button.grid(
+        sjf_button.grid(
             row=0,
             column=2,
             padx=5
@@ -206,18 +221,18 @@ class SchedulerApp:
         # =========================
         gantt_frame = ttk.LabelFrame(
             self.root,
-            text="Gantt Chart",
+            text="SJF Preemptive Gantt Chart",
             padding=10
         )
         gantt_frame.pack(
             fill="x",
             padx=20,
-            pady=10
+            pady=5
         )
 
         self.canvas = tk.Canvas(
             gantt_frame,
-            height=130,
+            height=150,
             background="white"
         )
         self.canvas.pack(
@@ -280,16 +295,12 @@ class SchedulerApp:
 
         self.processes.append(process)
 
-        self.tree.insert(
-            "",
-            tk.END,
-            values=(
-                process.pid,
-                process.arrival_time,
-                process.burst_time
-            )
-        )
+        # Khi input thay đổi, kết quả thuật toán cũ không còn hợp lệ.
+        self.completed_processes = []
+        self.gantt_data = []
 
+        self.refresh_table(self.processes)
+        self.canvas.delete("all")
         self.clear_entries()
 
     # =========================
@@ -301,6 +312,28 @@ class SchedulerApp:
         self.burst_entry.delete(0, tk.END)
 
         self.pid_entry.focus()
+
+    # =========================
+    # REFRESH TABLE
+    # =========================
+    def refresh_table(self, processes):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        for process in processes:
+            self.tree.insert(
+                "",
+                tk.END,
+                values=(
+                    process.pid,
+                    process.arrival_time,
+                    process.burst_time,
+                    process.completion_time,
+                    process.turnaround_time,
+                    process.waiting_time,
+                    process.response_time
+                )
+            )
 
     # =========================
     # DELETE PROCESS
@@ -315,102 +348,165 @@ class SchedulerApp:
             )
             return
 
+        selected_pids = []
+
         for item in selected:
             values = self.tree.item(
                 item,
                 "values"
             )
 
-            pid = values[0]
+            if values:
+                selected_pids.append(
+                    str(values[0])
+                )
 
-            self.processes = [
-                process
-                for process in self.processes
-                if process.pid != pid
-            ]
+        self.processes = [
+            process
+            for process in self.processes
+            if process.pid not in selected_pids
+        ]
 
-            self.tree.delete(item)
+        self.completed_processes = []
+        self.gantt_data = []
 
-        self.draw_gantt_chart()
+        self.refresh_table(self.processes)
+        self.canvas.delete("all")
 
     # =========================
     # RESET
     # =========================
     def reset_all(self):
         self.processes.clear()
+        self.completed_processes.clear()
+        self.gantt_data.clear()
 
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-
+        self.refresh_table([])
         self.canvas.delete("all")
-
         self.clear_entries()
 
     # =========================
-    # GANTT CHART
+    # RUN SJF PREEMPTIVE
     # =========================
-    def draw_gantt_chart(self):
+    def run_sjf_algorithm(self):
+        if not self.processes:
+            messagebox.showwarning(
+                "SJF Preemptive",
+                "Please add at least one process."
+            )
+            return
+
+        try:
+            completed_processes, gantt_chart = run_sjf(
+                self.processes
+            )
+        except Exception as error:
+            messagebox.showerror(
+                "SJF Error",
+                str(error)
+            )
+            return
+
+        self.completed_processes = completed_processes
+        self.gantt_data = gantt_chart
+
+        # Hiển thị CT, TAT, WT, RT
+        self.refresh_table(
+            self.completed_processes
+        )
+
+        # Vẽ Gantt thật từ SRTF
+        self.draw_gantt_chart(
+            self.gantt_data
+        )
+
+        messagebox.showinfo(
+            "SJF Preemptive",
+            "SJF Preemptive completed successfully."
+        )
+
+    # =========================
+    # DRAW REAL SJF GANTT CHART
+    # =========================
+    def draw_gantt_chart(self, gantt_chart=None):
         self.canvas.delete("all")
 
-        if not self.processes:
+        if gantt_chart is None:
+            gantt_chart = self.gantt_data
+
+        if not gantt_chart:
             self.canvas.create_text(
-                450,
-                60,
-                text="No process data",
+                500,
+                70,
+                text="Run SJF Preemptive to generate Gantt Chart",
                 font=("Arial", 13)
             )
             return
 
-        x = 40
-        y = 25
-        height = 50
-        current_time = 0
+        first_start = gantt_chart[0][1]
+        final_end = gantt_chart[-1][2]
 
-        total_burst = sum(
-            process.burst_time
-            for process in self.processes
-        )
+        total_time = final_end - first_start
+
+        if total_time <= 0:
+            return
 
         canvas_width = self.canvas.winfo_width()
 
         if canvas_width <= 1:
-            canvas_width = 900
+            canvas_width = 1000
 
-        available_width = canvas_width - 80
-        scale = available_width / total_burst
+        left_margin = 40
+        right_margin = 40
 
-        for process in self.processes:
-            width = process.burst_time * scale
+        available_width = (
+            canvas_width
+            - left_margin
+            - right_margin
+        )
+
+        scale = available_width / total_time
+
+        y = 30
+        height = 55
+
+        for pid, start_time, end_time in gantt_chart:
+            x1 = (
+                left_margin
+                + (start_time - first_start) * scale
+            )
+
+            x2 = (
+                left_margin
+                + (end_time - first_start) * scale
+            )
 
             self.canvas.create_rectangle(
-                x,
+                x1,
                 y,
-                x + width,
+                x2,
                 y + height,
                 outline="black",
                 width=2
             )
 
             self.canvas.create_text(
-                x + width / 2,
+                (x1 + x2) / 2,
                 y + height / 2,
-                text=process.pid,
-                font=("Arial", 12, "bold")
+                text=pid,
+                font=("Arial", 11, "bold")
             )
 
             self.canvas.create_text(
-                x,
+                x1,
                 y + height + 20,
-                text=str(current_time)
+                text=str(start_time)
             )
 
-            current_time += process.burst_time
-            x += width
-
         self.canvas.create_text(
-            x,
+            left_margin + total_time * scale,
             y + height + 20,
-            text=str(current_time)
+            text=str(final_end)
         )
 
     # =========================
@@ -424,6 +520,13 @@ class SchedulerApp:
             )
             return
 
+        if not self.completed_processes:
+            messagebox.showwarning(
+                "Export DOCX",
+                "Run SJF Preemptive before exporting the report."
+            )
+            return
+
         try:
             from docx import Document
         except ImportError:
@@ -434,7 +537,7 @@ class SchedulerApp:
             return
 
         file_path = filedialog.asksaveasfilename(
-            title="Save CPU Scheduling Report",
+            title="Save SJF Preemptive Report",
             defaultextension=".docx",
             filetypes=[
                 ("Word Document", "*.docx")
@@ -452,61 +555,100 @@ class SchedulerApp:
         )
 
         document.add_heading(
-            "Process Information",
+            "SJF Preemptive (SRTF) Results",
             level=2
         )
 
+        # 7-column result table
         table = document.add_table(
             rows=1,
-            cols=3
+            cols=7
         )
 
         table.style = "Table Grid"
 
         headers = [
             "PID",
-            "Arrival Time",
-            "Burst Time"
+            "AT",
+            "BT",
+            "CT",
+            "TAT",
+            "WT",
+            "RT"
         ]
 
         for index, header in enumerate(headers):
             table.rows[0].cells[index].text = header
 
-        for process in self.processes:
+        for process in self.completed_processes:
             cells = table.add_row().cells
 
-            cells[0].text = str(process.pid)
-            cells[1].text = str(process.arrival_time)
-            cells[2].text = str(process.burst_time)
+            values = [
+                process.pid,
+                process.arrival_time,
+                process.burst_time,
+                process.completion_time,
+                process.turnaround_time,
+                process.waiting_time,
+                process.response_time
+            ]
 
-        total_burst = sum(
-            process.burst_time
-            for process in self.processes
-        )
+            for index, value in enumerate(values):
+                cells[index].text = str(value)
 
-        document.add_paragraph()
-        document.add_paragraph(
-            f"Number of processes: {len(self.processes)}"
-        )
-        document.add_paragraph(
-            f"Total burst time: {total_burst}"
-        )
-
+        # Gantt
         document.add_heading(
-            "Gantt Chart Order",
+            "Gantt Chart",
             level=2
         )
 
-        gantt_order = " -> ".join(
-            process.pid
-            for process in self.processes
+        gantt_text = " | ".join(
+            f"{pid} ({start}-{end})"
+            for pid, start, end in self.gantt_data
         )
 
-        document.add_paragraph(gantt_order)
+        document.add_paragraph(
+            gantt_text
+        )
+
+        # Average metrics
+        count = len(self.completed_processes)
+
+        avg_waiting = sum(
+            process.waiting_time
+            for process in self.completed_processes
+        ) / count
+
+        avg_turnaround = sum(
+            process.turnaround_time
+            for process in self.completed_processes
+        ) / count
+
+        avg_response = sum(
+            process.response_time
+            for process in self.completed_processes
+        ) / count
+
+        document.add_heading(
+            "Average Times",
+            level=2
+        )
+
+        document.add_paragraph(
+            f"Average Waiting Time: {avg_waiting:.2f}"
+        )
+
+        document.add_paragraph(
+            f"Average Turnaround Time: {avg_turnaround:.2f}"
+        )
+
+        document.add_paragraph(
+            f"Average Response Time: {avg_response:.2f}"
+        )
 
         document.save(file_path)
 
         messagebox.showinfo(
             "Export DOCX",
-            "DOCX file exported successfully."
+            "SJF Preemptive DOCX report exported successfully."
         )
