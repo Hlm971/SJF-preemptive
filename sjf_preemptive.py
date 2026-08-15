@@ -54,23 +54,32 @@ def run_sjf(processes: list[Process]) -> tuple[list[Process], list[tuple[str, in
                         ("IDLE", start_time, end_time)
                     )
             continue
-        current_process = min(
-            ready_queue,
-            key=lambda process: (
-                process.remaining_time,
-                -process.arrival_time,
-                process.pid
-            )
-        )
+        min_rem = min(process.remaining_time for process in ready_queue)
+        candidates = [
+            process for process in ready_queue
+            if process.remaining_time == min_rem
+        ]
+        new_arrivals = [
+            process for process in candidates
+            if process.arrival_time == current_time
+        ]
+
+        if new_arrivals:
+            current_process = new_arrivals[0]
+        else:
+            current_process = min(candidates, key=lambda p: p.arrival_time)
+
         if not current_process.started:
             current_process.started = True
             current_process.response_time = (
                 current_time - current_process.arrival_time
             )
+
         start_time = current_time
         current_time += 1
         current_process.remaining_time -= 1
         end_time = current_time
+
         if (
             gantt_chart
             and gantt_chart[-1][0] == current_process.pid
@@ -90,6 +99,7 @@ def run_sjf(processes: list[Process]) -> tuple[list[Process], list[tuple[str, in
                     end_time
                 )
             )
+
         if current_process.remaining_time == 0:
             current_process.completion_time = current_time
             current_process.turnaround_time = (
@@ -101,4 +111,5 @@ def run_sjf(processes: list[Process]) -> tuple[list[Process], list[tuple[str, in
                 - current_process.burst_time
             )
             completed_count += 1
+
     return completed_processes, gantt_chart
