@@ -1,28 +1,10 @@
 from copy import deepcopy
-
 from models import Process
-
-
 def run_sjf(processes: list[Process]) -> tuple[list[Process], list[tuple[str, int, int]]]:
-    """
-    Run SJF Preemptive (SRTF) scheduling algorithm.
-
-    Args:
-        processes: List of Process objects.
-
-    Returns:
-        A tuple containing:
-        - completed_processes: Processes with calculated scheduling metrics.
-        - gantt_chart: List of (process_id, start_time, end_time).
-    """
-
     completed_processes = deepcopy(processes)
     gantt_chart = []
-
     if not completed_processes:
         return completed_processes, gantt_chart
-
-    # Initialize scheduling attributes.
     for process in completed_processes:
         process.remaining_time = process.burst_time
         process.completion_time = 0
@@ -30,22 +12,16 @@ def run_sjf(processes: list[Process]) -> tuple[list[Process], list[tuple[str, in
         process.waiting_time = 0
         process.response_time = -1
         process.started = False
-
     current_time = 0
     completed_count = 0
     total_processes = len(completed_processes)
-
     while completed_count < total_processes:
-
-        # Find all processes that have arrived and are not completed.
         ready_queue = [
             process
             for process in completed_processes
             if process.arrival_time <= current_time
             and process.remaining_time > 0
         ]
-
-        # CPU is idle if no process is ready.
         if not ready_queue:
             next_process = min(
                 (
@@ -58,11 +34,9 @@ def run_sjf(processes: list[Process]) -> tuple[list[Process], list[tuple[str, in
                     process.pid
                 )
             )
-
             start_time = current_time
             current_time = max(current_time, next_process.arrival_time)
             end_time = current_time
-
             if start_time < end_time:
                 if (
                     gantt_chart
@@ -79,35 +53,24 @@ def run_sjf(processes: list[Process]) -> tuple[list[Process], list[tuple[str, in
                     gantt_chart.append(
                         ("IDLE", start_time, end_time)
                     )
-
             continue
-
-        # Select the process with the shortest remaining time.
         current_process = min(
             ready_queue,
             key=lambda process: (
                 process.remaining_time,
-                process.arrival_time,
+                -process.arrival_time,
                 process.pid
             )
         )
-
-        # Record the first time this process gets CPU.
         if not current_process.started:
             current_process.started = True
             current_process.response_time = (
                 current_time - current_process.arrival_time
             )
-
-        # Execute the process for one time unit.
         start_time = current_time
-
         current_time += 1
         current_process.remaining_time -= 1
-
         end_time = current_time
-
-        # Update Gantt Chart.
         if (
             gantt_chart
             and gantt_chart[-1][0] == current_process.pid
@@ -127,21 +90,15 @@ def run_sjf(processes: list[Process]) -> tuple[list[Process], list[tuple[str, in
                     end_time
                 )
             )
-
-        # Process has finished.
         if current_process.remaining_time == 0:
             current_process.completion_time = current_time
-
             current_process.turnaround_time = (
                 current_process.completion_time
                 - current_process.arrival_time
             )
-
             current_process.waiting_time = (
                 current_process.turnaround_time
                 - current_process.burst_time
             )
-
             completed_count += 1
-
     return completed_processes, gantt_chart
