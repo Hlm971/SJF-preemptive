@@ -3,6 +3,8 @@ from tkinter import ttk, messagebox, filedialog
 
 from models import Process
 from sjf_preemptive import run_sjf
+from fcfs import run_fcfs
+from comparator import calculate_average
 
 
 class SchedulerApp:
@@ -203,6 +205,26 @@ class SchedulerApp:
             row=0,
             column=2,
             padx=5
+        ) 
+        fcfs_button = ttk.Button(
+            button_frame,
+            text="Run FCFS",
+            command=self.run_fcfs_algorithm
+        )
+        fcfs_button.grid(
+            row=0,
+            column=3,
+            padx=5
+        ) 
+        compare_button = ttk.Button(
+            button_frame,
+            text="Compare",
+            command=self.compare_algorithms
+        )
+        compare_button.grid(
+            row=0,
+            column=4,
+            padx=5
         )
 
         export_button = ttk.Button(
@@ -212,7 +234,7 @@ class SchedulerApp:
         )
         export_button.grid(
             row=0,
-            column=3,
+            column=5,
             padx=5
         )
 
@@ -221,7 +243,7 @@ class SchedulerApp:
         # =========================
         gantt_frame = ttk.LabelFrame(
             self.root,
-            text="SJF Preemptive Gantt Chart",
+            text="Gantt Chart",
             padding=10
         )
         gantt_frame.pack(
@@ -424,6 +446,115 @@ class SchedulerApp:
             "SJF Preemptive",
             "SJF Preemptive completed successfully."
         )
+            # =========================
+    # RUN FCFS
+    # =========================
+    def run_fcfs_algorithm(self):
+        if not self.processes:
+            messagebox.showwarning(
+                "FCFS",
+                "Please add at least one process."
+            )
+            return
+
+        try:
+            completed_processes, gantt_chart = run_fcfs(
+                self.processes
+            )
+        except Exception as error:
+            messagebox.showerror(
+                "FCFS Error",
+                str(error)
+            )
+            return
+
+        self.completed_processes = completed_processes
+        self.gantt_data = gantt_chart
+
+        self.refresh_table(
+            self.completed_processes
+        )
+
+        self.draw_gantt_chart(
+            self.gantt_data
+        )
+
+        messagebox.showinfo(
+            "FCFS",
+            "FCFS completed successfully."
+        )
+            # =========================
+    # COMPARE SJF VS FCFS
+    # =========================
+    def compare_algorithms(self):
+        if not self.processes:
+            messagebox.showwarning(
+                "Compare",
+                "Please add at least one process."
+            )
+            return
+
+        try:
+            sjf_input = [
+                Process(
+                    process.pid,
+                    process.arrival_time,
+                    process.burst_time
+                )
+                for process in self.processes
+            ]
+
+            fcfs_input = [
+                Process(
+                    process.pid,
+                    process.arrival_time,
+                    process.burst_time
+                )
+                for process in self.processes
+            ]
+
+            sjf_result, _ = run_sjf(sjf_input)
+            fcfs_result, _ = run_fcfs(fcfs_input)
+
+            sjf_wt, sjf_tat = calculate_average(sjf_result)
+            fcfs_wt, fcfs_tat = calculate_average(fcfs_result)
+
+            if sjf_wt < fcfs_wt:
+                wt_result = "SJF Preemptive has lower Average WT."
+            elif fcfs_wt < sjf_wt:
+                wt_result = "FCFS has lower Average WT."
+            else:
+                wt_result = "Both have the same Average WT."
+
+            if sjf_tat < fcfs_tat:
+                tat_result = "SJF Preemptive has lower Average TAT."
+            elif fcfs_tat < sjf_tat:
+                tat_result = "FCFS has lower Average TAT."
+            else:
+                tat_result = "Both have the same Average TAT."
+
+            result_text = (
+                "SJF PREEMPTIVE (SRTF)\n"
+                f"Average WT: {sjf_wt:.2f}\n"
+                f"Average TAT: {sjf_tat:.2f}\n\n"
+                "FCFS\n"
+                f"Average WT: {fcfs_wt:.2f}\n"
+                f"Average TAT: {fcfs_tat:.2f}\n\n"
+                "COMPARISON\n"
+                f"{wt_result}\n"
+                f"{tat_result}"
+            )
+
+            messagebox.showinfo(
+                "SJF Preemptive vs FCFS",
+                result_text
+            )
+
+        except Exception as error:
+            messagebox.showerror(
+                "Compare Error",
+                str(error)
+            )
 
     # =========================
     # DRAW REAL SJF GANTT CHART
