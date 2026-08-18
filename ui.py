@@ -12,6 +12,7 @@ class SchedulerApp:
         self.root = root
         self.root.title("CPU Scheduling Simulator")
         self.root.geometry("1200x800")
+        self.root.minsize(900, 600)
 
         self.processes = []
         self.completed_processes = []
@@ -160,9 +161,11 @@ class SchedulerApp:
             self.tree.column(
                 column,
                 width=100,
-                anchor="center"
+                minwidth=60,
+                anchor="center",
+                stretch=True
             )
-
+           
         self.tree.pack(
             fill="both",
             expand=True
@@ -241,19 +244,19 @@ class SchedulerApp:
         # =========================
         # GANTT CHART
         # =========================
-        gantt_frame = ttk.LabelFrame(
+        self.gantt_frame = ttk.LabelFrame(
             self.root,
             text="Gantt Chart",
             padding=10
         )
-        gantt_frame.pack(
+        self.gantt_frame.pack(
             fill="x",
             padx=20,
             pady=5
         )
 
         self.canvas = tk.Canvas(
-            gantt_frame,
+            self.gantt_frame,
             height=150,
             background="white"
         )
@@ -261,6 +264,11 @@ class SchedulerApp:
             fill="x",
             expand=True
         )
+        self.canvas.bind(
+            "<Configure>",
+            self.on_canvas_resize
+        )
+        self.gantt_frame.pack_forget()
 
     # =========================
     # ADD PROCESS
@@ -559,6 +567,13 @@ class SchedulerApp:
     # =========================
     # DRAW REAL SJF GANTT CHART
     # =========================
+    # =========================
+    # RESPONSIVE GANTT CHART
+    # =========================
+    def on_canvas_resize(self, event):
+        if self.gantt_data:
+            self.draw_gantt_chart(self.gantt_data)
+
     def draw_gantt_chart(self, gantt_chart=None):
         self.canvas.delete("all")
 
@@ -573,6 +588,12 @@ class SchedulerApp:
                 font=("Arial", 13)
             )
             return
+        self.gantt_frame.pack(
+            fill="both",
+            expand=True,
+            padx=20,
+            pady=5
+        )
 
         first_start = gantt_chart[0][1]
         final_end = gantt_chart[-1][2]
