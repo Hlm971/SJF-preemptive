@@ -11,7 +11,7 @@ class SchedulerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("CPU Scheduling Simulator")
-        self.root.geometry("1200x800")
+        self.root.geometry("1000x650")
         self.root.minsize(900, 600)
 
         self.processes = []
@@ -230,17 +230,7 @@ class SchedulerApp:
             padx=5
         )
 
-        export_button = ttk.Button(
-            button_frame,
-            text="Export DOCX",
-            command=self.export_docx
-        )
-        export_button.grid(
-            row=0,
-            column=5,
-            padx=5
-        )
-
+       
         # =========================
         # GANTT CHART
         # =========================
